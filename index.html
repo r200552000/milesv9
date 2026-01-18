@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>哩程攻略 v9.1 (上限監控版)</title>
+  <title>哩程攻略 v9.2 (精算顯示版)</title>
 
   <link href="https://fonts.googleapis.com/css2?family=Varela+Round&family=Mali:wght@500;700&display=swap" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -11,7 +11,7 @@
 
   <style>
     /* =========================
-       CSS 樣式表 (v9.1)
+       CSS 樣式表 (v9.2)
        ========================= */
     :root {
       --bg-main: #fffdf9;
@@ -213,8 +213,8 @@
     <div class="d-flex align-items-center">
       <div class="header-icon"><i class="fa-solid fa-plane-departure"></i></div>
       <div class="header-title">
-        <h5>哩程攻略 v9.1</h5>
-        <small>上限監控版</small>
+        <h5>哩程攻略 v9.2</h5>
+        <small>精算顯示版</small>
       </div>
     </div>
     <button class="btn-header" onclick="openSettings()"><i class="fa-solid fa-gear me-1"></i> 設定</button>
@@ -391,7 +391,7 @@
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script>
     /* =========================
-       哩程攻略 v9.1 (上限監控版)
+       哩程攻略 v9.2 (精算顯示版)
        ========================= */
 
     const BUILTIN_DEFS = [
@@ -444,7 +444,7 @@
       ]
     };
 
-    // 星展 指定通路 (v9.1 新增)
+    // 星展 指定通路
     const DBS_KEYWORDS = ['shopee','蝦皮','ubereats','foodpanda','itunes','google play'];
 
     // --- 狀態管理 ---
@@ -470,7 +470,7 @@
       };
     }
 
-    // --- 計算核心 (v9.1 上限監控版) ---
+    // --- 計算核心 (v9.2 精算顯示版) ---
 
     function calculate() {
       const db = loadDB();
@@ -497,18 +497,16 @@
       let cubePlan = 'unknown';
       let isLiveSelect = false;
 
-      // CUBE 權益判斷
+      // CUBE
       if(isForeign || cat==='travel' || cat.startsWith('flight')) cubePlan = 'travel';
       else {
         for(let p in CUBE_KEYWORDS) {
           if(CUBE_KEYWORDS[p].some(w => kw.includes(w))) { cubePlan = p; break; }
         }
-        if(cubePlan==='unknown') {
-          if(cat==='dining') cubePlan = 'dining';
-        }
+        if(cubePlan==='unknown' && cat==='dining') cubePlan = 'dining';
       }
 
-      // Live+ 判斷
+      // Live+
       if(cat==='dining') isLiveSelect = true;
       else {
         if(
@@ -526,7 +524,7 @@
 
       let results = [];
 
-      // 1. 國泰 CUBE (360點=1000哩)
+      // 1. 國泰 CUBE
       if(db.settings.enabledBuiltins.includes('cube')) {
         let pRate = 0.003; 
         let planName = '一般消費(0.3%)';
@@ -544,89 +542,80 @@
         results.push({ id:'cube', name:'國泰 CUBE', miles: finalMiles, note: `${planName}<br><span class="text-muted small">360點⇄1000哩</span>`, type:'mile' });
       }
 
-      // 2. 匯豐 Live+ (v9.1: 分段上限計算)
+      // 2. 匯豐 Live+ (v9.2: 顯示 % 數)
       if(db.settings.enabledBuiltins.includes('hsbc_live')) {
-        let note = '一般 0.88%';
+        let displayRate = '0.88%';
+        let displayType = '一般';
         let warning = '';
         const hasAutopay = db.settings.hsbc_autopay;
         
-        // 基礎點數 (無上限)
-        let totalPoints = twdBase * 0.0088;
+        let totalPoints = twdBase * 0.0088; // 基礎
         
-        // 加碼計算
         if(isLiveSelect) {
-           // 加碼 1: 通路 3% (上限 888 點)
-           let bonus1 = twdBase * 0.03;
-           if(bonus1 > 888) {
-             bonus1 = 888;
-             warning = '⚠️ 通路加碼已達上限';
-           }
-           totalPoints += bonus1;
-           note = '精選 3.88%';
-
-           // 加碼 2: 扣繳/國外 1% (上限 200 點)
-           let bonus2Rate = 0;
-           if(isForeign) bonus2Rate += 0.01; 
-           else if(hasAutopay) bonus2Rate += 0.01;
+           displayType = '精選';
+           displayRate = '3.88%';
            
+           // 加碼 1 (3%)
+           let bonus1 = twdBase * 0.03;
+           if(bonus1 > 888) { bonus1 = 888; warning = '⚠️ 通路加碼已達上限'; }
+           totalPoints += bonus1;
+
+           // 加碼 2 (1%)
+           let bonus2Rate = 0;
+           if(isForeign) { bonus2Rate = 0.01; displayType = '國外精選'; displayRate = '4.88%'; } 
+           else if(hasAutopay) { bonus2Rate = 0.01; displayRate = '4.88%'; } 
+           
+           if(isForeign && hasAutopay) displayRate = '5.88%'; // 顯示修正
+
            if(bonus2Rate > 0) {
              let bonus2 = twdBase * 0.01;
-             if(bonus2 > 200) {
-                bonus2 = 200;
-                warning = warning ? '⚠️ 雙重加碼已達上限' : '⚠️ 任務加碼已達上限';
-             }
+             if(bonus2 > 200) { bonus2 = 200; warning = warning ? '⚠️ 雙重加碼已達上限' : '⚠️ 任務加碼已達上限'; }
              totalPoints += bonus2;
-             note += (isForeign ? '+國外' : '+扣繳');
            }
+        } else {
+           if(hasAutopay) { displayRate = '1.88%'; }
         }
         
         const cashPoints = Math.floor(totalPoints);
         const finalMiles = cashPoints * 2; 
         
-        let displayNote = `${note} <br><span class="text-muted small">1點現金積點⇄2哩</span>`;
-        if(warning) displayNote += `<br><span class="warning-badge">${warning}</span>`;
+        let note = `${displayType} ${displayRate} <br><span class="text-muted small">1點現金積點⇄2哩</span>`;
+        if(warning) note = `${displayType} (混合費率)<br><span class="warning-badge">${warning}</span>`;
 
-        results.push({ id:'hsbc_live', name:'匯豐 Live+', miles: finalMiles, note: displayNote, type:'mile' });
+        results.push({ id:'hsbc_live', name:'匯豐 Live+', miles: finalMiles, note: note, type:'mile' });
       }
 
-      // 3. 星展 傳說對決 (v9.1: 11363 門檻監控)
+      // 3. 星展 傳說對決 (v9.2: 先取整數再乘2)
       if(db.settings.enabledBuiltins.includes('dbs_garena')) {
-        let pRate = 0.01; 
         let note = '一般1% (約50元/哩)';
         const hasAutopay = db.settings.dbs_autopay;
-        
-        // 判定 10% 資格: LinePay OR 指定關鍵字 (蝦皮/Uber等)
         const isTarget = (pay === 'line_pay') || DBS_KEYWORDS.some(w => kw.includes(w));
+        let rawPoints = 0;
 
         if(isTarget && hasAutopay) {
             if(twdBase <= 11363) {
-                // 額度內
-                pRate = 0.1;
+                // 額度內全額 10%
+                rawPoints = twdBase * 0.1;
                 note = '指定通路 10% (有扣繳)';
             } else {
-                // 爆表：分段計算
-                let highPart = 11363 * 0.1;
-                let lowPart = (twdBase - 11363) * 0.01;
-                let totalPoints = Math.floor(highPart + lowPart);
-                
-                results.push({ 
-                    id:'dbs_garena', name:'星展 傳說', 
-                    miles: totalPoints * 2, 
-                    note: `指定通路 (混合)<br><span class="warning-badge">⚠️ 10%額度已滿 (剩1%)</span>`, 
-                    type:'mile' 
-                });
-                return; // 已處理完畢，跳出
+                // 額度外混合
+                rawPoints = (11363 * 0.1) + ((twdBase - 11363) * 0.01);
+                note = `指定通路 (混合)<br><span class="warning-badge">⚠️ 10%額度已滿 (剩1%)</span>`;
             }
         } else if (isTarget && !hasAutopay) {
+            rawPoints = twdBase * 0.01;
             note = '指定通路 (無扣繳 1%)';
+        } else {
+            rawPoints = twdBase * 0.01;
         }
 
-        const pts = Math.floor(twdBase * pRate);
-        const finalMiles = pts * 2;
-        results.push({ id:'dbs_garena', name:'星展 傳說', miles: finalMiles, note: `${note}`, type:'mile' });
+        const finalPoints = Math.floor(rawPoints); // 關鍵: 先取整數
+        const finalMiles = finalPoints * 2; // 再換哩程
+
+        results.push({ id:'dbs_garena', name:'星展 傳說', miles: finalMiles, note: note, type:'mile' });
       }
 
-      // 4. 中信 華航鼎尊 (v9.1: 40萬上限監控)
+      // 4. 中信 華航鼎尊 (40萬上限)
       if(db.settings.enabledBuiltins.includes('ctbc_ci')) {
         let div = 18;
         let note = '一般 $18/哩';
@@ -637,7 +626,6 @@
         else if(isForeign && (pay === 'physical' || pay === 'apple_pay')) {
              if(isBirthday) {
                  if(twdBase > 400000) {
-                     // 40萬內 $6，超過 $9 
                      let highMiles = Math.floor(400000 / 6);
                      let lowMiles = Math.floor((twdBase - 400000) / 9);
                      let total = highMiles + lowMiles;
@@ -658,7 +646,7 @@
         results.push({ id:'ctbc_ci', name:'中信 華航', miles: Math.floor(twdBase/div), note: note, type:'mile' });
       }
 
-      // 5. 台新 國泰世界
+      // 5. 台新 國泰世界 (Pay死刑)
       if(db.settings.enabledBuiltins.includes('taishin_cx')) {
         let div = isForeign ? 15 : 22; 
         let note = `約${div}元/哩`;
@@ -695,7 +683,7 @@
       renderResults(results, twdSpend);
     }
 
-    // --- 渲染與輔助功能 ---
+    // --- 渲染與輔助功能 (維持) ---
 
     function renderResults(list, spend) {
       const con = $('cards-container');
@@ -867,7 +855,7 @@
     function toggleSwitch(id) { /* UI */ }
     function switchPage(p) { document.querySelectorAll('.page-section').forEach(e => e.style.display='none'); $(`page-${p}`).style.display='block'; document.querySelectorAll('.nav-item').forEach(e => e.classList.remove('active')); event.currentTarget.classList.add('active'); if(p==='status') updateStatusUI(); window.scrollTo(0,0); }
     function clearCurrentStats() { if(!confirm('確定重置？')) return; const db = loadDB(); const now = new Date(); const monthKey = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`; db.records[monthKey] = {}; saveDB(db); updateStatusUI(); }
-    function exportData() { const db = loadDB(); const blob = new Blob([JSON.stringify(db,null,2)], {type : 'application/json'}); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'miles_backup_v9_1.json'; a.click(); }
+    function exportData() { const db = loadDB(); const blob = new Blob([JSON.stringify(db,null,2)], {type : 'application/json'}); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'miles_backup_v9_2.json'; a.click(); }
     window.onload = function() { updateStatusUI(); };
   </script>
 </body>
